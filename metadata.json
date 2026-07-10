@@ -1,0 +1,6 @@
+{
+  "name": "Bengali News Banner Maker",
+  "description": "নিউজ ব্যানার জেনারেটর — একটি আধুনিক এবং সহজ বাংলা নিউজ ব্যানার মেকার।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
