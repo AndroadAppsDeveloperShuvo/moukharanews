@@ -266,6 +266,7 @@ const getBengaliTextWidth = (
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const previewImgRef = useRef<HTMLImageElement | null>(null);
   
   // Tab state
   const [activeTab, setActiveTab] = useState<'theme' | 'content' | 'advanced'>('theme');
@@ -1331,6 +1332,16 @@ export default function App() {
       ctx.restore();
     }
 
+    // Sync to visible preview <img> element
+    try {
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      if (previewImgRef.current) {
+        previewImgRef.current.src = dataUrl;
+      }
+    } catch (e) {
+      console.error("Error updating preview image", e);
+    }
+
   }, [
     headline,
     dateText,
@@ -1453,16 +1464,50 @@ export default function App() {
     }
   };
 
+  const fallbackDataURLDownload = (canvasElement: HTMLCanvasElement) => {
+    try {
+      const dataUrl = canvasElement.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.download = `bengali-news-${channelName.trim().replace(/[^a-zA-Z0-9]/g, '_') || 'banner'}.png`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      // Last resort: Alert the user they can right-click/long-press to save the live preview image
+      alert("ডাউনলোড লিঙ্কটি আপনার ব্রাউজারে ব্লক হয়েছে। অনুগ্রহ করে প্রিভিউ ইমেজটির উপর চেপে ধরে (মোবাইলে) অথবা রাইট ক্লিক করে (পিসিতে) 'Save Image' বা 'ডাউনলোড' অপশনটি ব্যবহার করুন।");
+    }
+  };
+
   const handleDownload = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    
     try {
-      const link = document.createElement('a');
-      link.download = `bengali-news-${channelName.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'banner'}.png`;
-      link.href = canvas.toDataURL('image/png', 1.0);
-      link.click();
+      // Convert to blob (great compatibility for sandboxed iframe environments)
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          fallbackDataURLDownload(canvas);
+          return;
+        }
+        
+        try {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.download = `bengali-news-${channelName.trim().replace(/[^a-zA-Z0-9]/g, '_') || 'banner'}.png`;
+          link.href = url;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Cleanup
+          setTimeout(() => URL.revokeObjectURL(url), 200);
+        } catch (err) {
+          fallbackDataURLDownload(canvas);
+        }
+      }, 'image/png');
     } catch (err) {
-      alert("ডাউনলোডে সমস্যা হয়েছে। অনুগ্রহ করে ব্রাউজার পারমিশন চেক করুন।");
+      fallbackDataURLDownload(canvas);
     }
   };
 
@@ -2322,12 +2367,22 @@ export default function App() {
           
           {/* Main Visual interactive Canvas Box */}
           <div className="w-full max-w-lg aspect-square overflow-hidden bg-slate-950 rounded-2xl p-1.5 border border-slate-800 shadow-2xl relative group">
+            {/* Real-time interactive long-pressable image */}
+            <img 
+              ref={previewImgRef}
+              id="bannerPreviewImage"
+              alt="নিউজ ব্যানার প্রিভিউ"
+              className="w-full h-auto object-contain rounded-xl cursor-pointer"
+              referrerPolicy="no-referrer"
+            />
+
+            {/* Hidden canvas used for behind-the-scenes rendering */}
             <canvas 
               ref={canvasRef}
               id="bannerCanvas" 
               width={1080}
               height={1080}
-              className="w-full h-auto object-contain rounded-xl"
+              style={{ display: 'none' }}
             ></canvas>
             
             {/* Quick action floating helper */}
